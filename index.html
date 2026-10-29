@@ -10,6 +10,9 @@
 .sale-banner::after{content:"";position:absolute;z-index:2;top:98.63cqw;bottom:2.5cqw;left:7.58%;right:8.4%;border:0.5cqw solid #04ad31;border-top:0;border-radius:0 0 2.7cqw 2.7cqw;pointer-events:none}
 .sale-banner .line-cta{z-index:3;top:102cqw;bottom:auto;width:78%}
 .cta-arrow{position:absolute;right:8%;width:3.2%;aspect-ratio:1;border-top:3px solid currentColor;border-right:3px solid currentColor;transform:rotate(45deg)}
+.line-cta{animation:cta-sway 3s ease-in-out infinite}.line-cta:hover{animation-play-state:paused}
+@keyframes cta-sway{0%,60%,100%{transform:translateX(-50%)}66%{transform:translateX(calc(-50% - 1.2cqw))}72%{transform:translateX(calc(-50% + 1.2cqw))}78%{transform:translateX(calc(-50% - .8cqw))}84%{transform:translateX(calc(-50% + .5cqw))}90%{transform:translateX(-50%)}}
+@media(prefers-reduced-motion:reduce){.line-cta{animation:none}}
 .line-cta:hover{background:#269f23;box-shadow:0 0 0 4px #ffffff25}.line-cta:focus-visible{outline:3px solid white;outline-offset:5px}
 @media(max-width:480px){.cta-arrow{border-width:2px}}
 .quality-notes{background:#fff;padding:24px 4% 64px;color:#333;font-family:Arial,"Hiragino Kaku Gothic ProN",Meiryo,sans-serif;font-size:16px;line-height:1.85;text-align:left}.quality-notes p{margin:0}.quality-notes p+p{margin-top:5px}@media(max-width:480px){.quality-notes{padding-top:16px;padding-bottom:42px}}

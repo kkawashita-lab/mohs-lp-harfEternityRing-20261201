@@ -1,0 +1,6 @@
+MOHS JEWELRY Webページ一式
+
+index.htmlをブラウザで開くと確認できます。
+CSSはindex.html内に記述しています。画像・GIFはassetsフォルダに格納しています。
+公開時はindex.htmlとassetsフォルダを同じ階層のままアップロードしてください。
+ビルドやパッケージのインストールは不要です。

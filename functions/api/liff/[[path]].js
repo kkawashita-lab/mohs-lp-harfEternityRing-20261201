@@ -82,45 +82,59 @@ function entry() {
     main { max-width: 28rem; margin: 12vh auto 0; padding: 1.5rem; text-align: center; }
     h1 { font: 500 1.7rem Georgia,serif; }
     a { display: block; padding: .85rem; border-radius: .55rem; background: #007a34; color: white; font-weight: 700; text-decoration: none; }
-    small { display: block; margin-top: 1rem; color: #394653; }
+    p { color: #394653; }
   </style>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
   <main>
     <h1>MOHS JEWELRY</h1>
-    <a id="official" href="${officialAccount}">LINEで友だち追加・公式アカウントを開く</a>
-    <small id="result" aria-live="polite">LINEアプリで開いたか確認しています。</small>
+    <p id="status" role="status">LINE公式アカウントを開いています…</p>
+    <a id="official" href="${officialAccount}">LINE公式アカウントを開く</a>
   </main>
   <script>
     (async () => {
-      const result = document.getElementById("result");
+      const status = document.getElementById("status");
       const official = document.getElementById("official");
+      const openOfficialAccount = () => liff.openWindow({ url: official.href, external: false });
+      let selectedManually = false;
+      const removeStatus = () => status.remove();
+      setTimeout(removeStatus, 1500);
       try {
         await liff.init({ liffId: ${JSON.stringify(liffId)} });
-        if (!liff.isInClient()) {
-          result.textContent = "外部ブラウザで開いています。上のボタンでLINEアプリへ進めます。";
-          return;
-        }
+        if (!liff.isInClient()) return;
         official.addEventListener("click", (event) => {
+          selectedManually = true;
           event.preventDefault();
-          liff.openWindow({ url: official.href, external: false });
+          try {
+            openOfficialAccount();
+          } catch {
+            location.assign(official.href);
+          }
         });
         const idToken = liff.getIDToken();
-        if (!idToken) throw new Error("Missing LINE ID token");
-        const visit = new URL(location.href).searchParams.get("visit");
-        const response = await fetch("/api/liff/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ idToken, visit }),
-        });
-        if (!response.ok) throw new Error("LINE verification failed");
-        const { hasMetaCookie } = await response.json();
-        result.textContent = hasMetaCookie
-          ? "LINEアプリ内で認証でき、LPの計測情報も引き継げました。"
-          : "LINEアプリ内で認証できました。LPの計測情報は確認できませんでした。";
+        if (idToken) {
+          const visit = new URL(location.href).searchParams.get("visit");
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 1500);
+          try {
+            await fetch("/api/liff/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ idToken, visit }),
+              signal: controller.signal,
+            });
+          } catch {
+            // The official account remains accessible if preview verification is unavailable.
+          } finally {
+            clearTimeout(timeout);
+          }
+        }
+        if (!selectedManually) openOfficialAccount();
       } catch {
-        result.textContent = "認証を確認できませんでした。上のボタンで公式アカウントを開けます。";
+        // The regular link remains available when the app cannot open automatically.
+      } finally {
+        removeStatus();
       }
     })();
   </script>

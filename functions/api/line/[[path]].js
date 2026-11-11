@@ -2,11 +2,13 @@ const productionOrigin = "https://lp.mohs-jewelry.com";
 const directLineUrl = "https://lin.ee/tXXrxcO";
 const lineAppUrl = "https://line.me/R/ti/p/%40972cpsts";
 const channelId = "2012558185";
+const liffId = "2012558185-v49RagG1";
 const datasetId = "1521986363312676";
 const callbackPath = "/api/line/callback";
 const stateCookie = "mohs_line_state";
 const windowSeconds = 600;
 const encoder = new TextEncoder();
+const decoder = new TextDecoder();
 
 function response(body, status = 200, headers = {}) {
   return new Response(body, {
@@ -139,6 +141,22 @@ async function removeExpired(env, now) {
     .bind(now).run();
 }
 
+async function recordVisit(env, userId, fbp, fbc, now) {
+  const subject = await subjectKey(env, userId);
+  await removeExpired(env, now);
+  await env.LINE_ATTRIBUTION_DB.prepare(`
+    INSERT INTO line_friend_attribution (subject, visited_at, fbp, fbc, expires_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(subject) DO UPDATE SET visited_at = excluded.visited_at, fbp = excluded.fbp, fbc = excluded.fbc
+    WHERE sent = 0 AND claim_until <= excluded.visited_at
+  `).bind(subject, now, fbp, fbc, now + 2 * windowSeconds).run();
+  try {
+    await sendMatchedEvent(env, subject, now);
+  } catch {
+    console.error("LINE friend attribution: Meta delivery failed after login");
+  }
+}
+
 async function callback(request, env, url, now) {
   const state = url.searchParams.get("state");
   const code = url.searchParams.get("code");
@@ -171,19 +189,7 @@ async function callback(request, env, url, now) {
     if (!profileResponse.ok) throw new Error("LINE profile unavailable");
     const { userId } = await profileResponse.json();
     if (typeof userId !== "string" || !userId) throw new Error("LINE profile user ID unavailable");
-    const subject = await subjectKey(env, userId);
-    await removeExpired(env, now);
-    await env.LINE_ATTRIBUTION_DB.prepare(`
-      INSERT INTO line_friend_attribution (subject, visited_at, fbp, fbc, expires_at)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(subject) DO UPDATE SET visited_at = excluded.visited_at, fbp = excluded.fbp, fbc = excluded.fbc
-      WHERE sent = 0 AND claim_until <= excluded.visited_at
-    `).bind(subject, now, fbp, fbc, now + 2 * windowSeconds).run();
-    try {
-      await sendMatchedEvent(env, subject, now);
-    } catch {
-      console.error("LINE friend attribution: Meta delivery failed after login");
-    }
+    await recordVisit(env, userId, fbp, fbc, now);
   }
   return finish("LINEの友だち登録を確認しました。", 200, true);
 }
@@ -222,6 +228,136 @@ async function webhook(request, env, now) {
   return response(null, 200);
 }
 
+function json(body, status = 200) {
+  return Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
+}
+
+function encode(bytes) {
+  return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+}
+
+function decode(value) {
+  return Uint8Array.from(atob(value.replaceAll("-", "+").replaceAll("_", "/")), (char) => char.charCodeAt(0));
+}
+
+async function handoffKey(secret) {
+  const material = await crypto.subtle.digest("SHA-256", encoder.encode("mohs-liff-production:" + secret));
+  return crypto.subtle.importKey("raw", material, "AES-GCM", false, ["encrypt", "decrypt"]);
+}
+
+async function createLink(request, env, now) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const payload = encoder.encode(JSON.stringify({
+    fbp: metaCookie(request, "_fbp"),
+    fbc: metaCookie(request, "_fbc"),
+    issuedAt: now,
+  }));
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv },
+    await handoffKey(env.LINE_LOGIN_CHANNEL_SECRET), payload);
+  const link = new URL("https://liff.line.me/" + liffId);
+  link.searchParams.set("visit", encode(iv) + "." + encode(new Uint8Array(encrypted)));
+  return json({ url: link.href });
+}
+
+async function verifyLiffVisit(request, env, now) {
+  const { visit, idToken } = await request.json();
+  if (typeof idToken !== "string" || idToken.length > 8192) return json({ error: "invalid_token" }, 400);
+  let payload;
+  if (typeof visit === "string" && /^[\w-]{16}\.[\w-]{1,1800}$/.test(visit)) {
+    try {
+      const [iv, encrypted] = visit.split(".").map(decode);
+      const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv },
+        await handoffKey(env.LINE_LOGIN_CHANNEL_SECRET), encrypted);
+      payload = JSON.parse(decoder.decode(plaintext));
+    } catch {
+      return json({ error: "invalid_visit" }, 400);
+    }
+  }
+  if (!payload || !Number.isInteger(payload.issuedAt) || payload.issuedAt > now ||
+      now - payload.issuedAt > windowSeconds) return json({ error: "expired_visit" }, 400);
+  if (!payload.fbp && !payload.fbc) return response(null, 204);
+  const result = await fetch("https://api.line.me/oauth2/v2.1/verify", {
+    method: "POST",
+    body: new URLSearchParams({ id_token: idToken, client_id: channelId }),
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!result.ok) return json({ error: "line_verification_failed" }, 401);
+  const profile = await result.json();
+  if (!profile.sub || profile.aud !== channelId) return json({ error: "line_verification_failed" }, 401);
+  await recordVisit(env, profile.sub, payload.fbp, payload.fbc, now);
+  return response(null, 204);
+}
+
+function liffEntry() {
+  return new Response(`<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>MOHS JEWELRY</title>
+  <style>
+    body { margin: 0; background: #faf9f6; color: #17212b; font: 16px/1.6 system-ui,sans-serif; }
+    main { max-width: 28rem; margin: 12vh auto 0; padding: 1.5rem; text-align: center; }
+    h1 { font: 500 1.7rem Georgia,serif; }
+    a { display: block; padding: .85rem; border-radius: .55rem; background: #007a34; color: white; font-weight: 700; text-decoration: none; }
+    p { color: #394653; }
+  </style>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+  <main>
+    <h1>MOHS JEWELRY</h1>
+    <p id="status" role="status">LINE公式アカウントを開いています…</p>
+    <a id="official" href="${lineAppUrl}">LINE公式アカウントを開く</a>
+  </main>
+  <script>
+    (async () => {
+      const status = document.getElementById("status");
+      const official = document.getElementById("official");
+      const openOfficialAccount = () => liff.openWindow({ url: official.href, external: false });
+      let selectedManually = false;
+      const removeStatus = () => status.remove();
+      setTimeout(removeStatus, 1500);
+      try {
+        await liff.init({ liffId: ${JSON.stringify(liffId)} });
+        if (!liff.isInClient()) return;
+        official.addEventListener("click", (event) => {
+          selectedManually = true;
+          event.preventDefault();
+          try {
+            openOfficialAccount();
+          } catch {
+            location.assign(official.href);
+          }
+        });
+        const idToken = liff.getIDToken();
+        const visit = new URL(location.href).searchParams.get("visit");
+        if (idToken && visit) {
+          const recorded = fetch("/api/line/liff/visit", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken, visit }),
+            keepalive: true,
+          }).catch(() => {});
+          let timeout;
+          await Promise.race([recorded, new Promise((resolve) => {
+            timeout = setTimeout(resolve, 1200);
+          })]);
+          clearTimeout(timeout);
+        }
+        if (!selectedManually) openOfficialAccount();
+      } catch {
+        // The regular link remains available when the app cannot open automatically.
+      } finally {
+        removeStatus();
+      }
+    })();
+  </script>
+</body>
+</html>`, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
+}
+
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
   const isStart = request.method === "GET" && url.pathname === "/api/line/start";
@@ -230,6 +366,11 @@ export async function onRequest({ request, env }) {
   if (url.origin !== productionOrigin) return response(null, 404);
   const now = Math.floor(Date.now() / 1000);
   try {
+    if (request.method === "GET" && url.pathname === "/api/line/liff") return liffEntry();
+    if (enabled && request.method === "POST" && request.headers.get("Origin") === productionOrigin) {
+      if (url.pathname === "/api/line/liff/link") return await createLink(request, env, now);
+      if (url.pathname === "/api/line/liff/visit") return await verifyLiffVisit(request, env, now);
+    }
     if (request.method === "GET" && url.pathname === callbackPath && enabled) return await callback(request, env, url, now);
     if (request.method === "POST" && url.pathname === "/api/line/webhook" && env.LINE_MESSAGING_CHANNEL_SECRET) {
       return await webhook(request, env, now);

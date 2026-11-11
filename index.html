@@ -81,4 +81,20 @@ src="https://www.facebook.com/tr?id=1521986363312676&ev=PageView&noscript=1"
 <p>ブランド名の「MOHS」は、鉱物の硬さを表す「モース硬度」に由来します。最高値の10を持つダイヤモンドへの想いを込めて名付けました。</p>
 <p>自分たちが本当に身に着けたいと思えるものを、同じようにジュエリーを楽しむ方々へお届けできれば嬉しいです。</p>
 </section><div class="sale-banner"><img src="assets/sale-cta.webp" srcset="assets/sale-cta-750.webp 750w, assets/sale-cta.webp 1230w" sizes="(max-width:750px) 100vw, 750px" width="1230" height="1640" alt="Makuake 12.1 TUE 12:00 START 超早割 限定3点 一般販売価格¥139,800(税込)から35%OFF ¥89,800(税込) LINE事前登録の方限定 開始日時・商品情報・早割情報をLINE友だちご登録で優先的にご案内します" loading="lazy" decoding="async"><a class="line-cta" data-cta-position="bottom" href="/api/line/start"><span>LINE登録でお得に</span><span class="cta-arrow" aria-hidden="true"></span></a></div><video class="ring-video" data-src="assets/ring-sparkle.mp4" data-poster="assets/ring-sparkle-poster.webp" width="1280" height="720" muted loop playsinline preload="none" aria-label="指輪のダイヤモンドがきらめく様子"></video></main><footer class="site-footer"><a href="tokushoho.html">特定商取引法について</a><a href="privacy.html">プライバシーポリシー</a></footer><a class="line-float" data-cta-position="float" href="/api/line/start" aria-label="LINEでお友だち追加"><svg viewBox="0 0 40 36" aria-hidden="true"><path fill="#fff" d="M20 1C9.5 1 1 7.7 1 16c0 7.4 6.6 13.6 15.6 14.8.6.1 1.4.4 1.6.9.2.5.1 1.2.1 1.6l-.3 1.6c-.1.5-.4 1.8 1.6 1 2-.8 10.6-6.3 14.5-10.7C36.8 22.2 39 19.3 39 16 39 7.7 30.5 1 20 1z"/><text x="20" y="20" fill="#32af2c" font-family="Arial,sans-serif" font-size="10" font-weight="700" text-anchor="middle">LINE</text></svg><span>お友だち追加</span></a>
-<script>(()=>{const b=document.querySelector('.line-float');const f=()=>b.classList.toggle('is-visible',scrollY>120);addEventListener('scroll',f,{passive:true});f();document.querySelectorAll('[data-cta-position]').forEach(a=>a.addEventListener('click',()=>gtag('event','line_click',{cta_position:a.dataset.ctaPosition,link_url:"https://lin.ee/tXXrxcO"})));const io=new IntersectionObserver(es=>es.forEach(e=>{const v=e.target;if(e.isIntersecting){if(!v.src){v.poster=v.dataset.poster;v.src=v.dataset.src}v.play().catch(()=>{})}else if(v.src)v.pause()}),{rootMargin:'600px 0px'});document.querySelectorAll('video[data-src]').forEach(v=>io.observe(v))})()</script></body></html>
+<script>(()=>{const b=document.querySelector('.line-float');const f=()=>b.classList.toggle('is-visible',scrollY>120);addEventListener('scroll',f,{passive:true});f();document.querySelectorAll('[data-cta-position]').forEach(a=>a.addEventListener('click',()=>gtag('event','line_click',{cta_position:a.dataset.ctaPosition,link_url:"https://lin.ee/tXXrxcO"})));const io=new IntersectionObserver(es=>es.forEach(e=>{const v=e.target;if(e.isIntersecting){if(!v.src){v.poster=v.dataset.poster;v.src=v.dataset.src}v.play().catch(()=>{})}else if(v.src)v.pause()}),{rootMargin:'600px 0px'});document.querySelectorAll('video[data-src]').forEach(v=>io.observe(v))})()</script><script>
+if (location.hostname === "line-liff-preview.mohs-lp.pages.dev") {
+  const prepareLineLinks = async () => {
+    try {
+      const response = await fetch("/api/liff/link", { method: "POST" });
+      if (!response.ok) return;
+      const { url } = await response.json();
+      if (new URL(url).origin !== "https://liff.line.me") return;
+      document.querySelectorAll("[data-cta-position]").forEach((link) => { link.href = url; });
+    } catch {
+      // The existing LINE link remains usable while preview setup is incomplete.
+    }
+  };
+  prepareLineLinks();
+  window.addEventListener("pageshow", () => setTimeout(prepareLineLinks, 1500));
+}
+</script></body></html>

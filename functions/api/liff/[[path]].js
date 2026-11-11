@@ -1,6 +1,7 @@
 const previewOrigin = "https://line-liff-preview.mohs-lp.pages.dev";
 const officialAccount = "https://line.me/R/ti/p/%40972cpsts";
 const channelId = "2012558185";
+const liffId = "2012558185-DEgBXaj0";
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -37,7 +38,7 @@ async function createLink(request, env) {
   }));
   const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv },
     await handoffKey(env.LINE_LOGIN_CHANNEL_SECRET), payload);
-  const link = new URL("https://liff.line.me/" + env.MOHS_LIFF_ID);
+  const link = new URL("https://liff.line.me/" + liffId);
   link.searchParams.set("visit", encode(iv) + "." + encode(new Uint8Array(encrypted)));
   return json({ url: link.href });
 }
@@ -68,7 +69,7 @@ async function verify(request, env) {
   return json({ hasMetaCookie });
 }
 
-function entry(env) {
+function entry() {
   return new Response(`<!doctype html>
 <html lang="ja">
 <head>
@@ -96,7 +97,7 @@ function entry(env) {
       const result = document.getElementById("result");
       const official = document.getElementById("official");
       try {
-        await liff.init({ liffId: ${JSON.stringify(env.MOHS_LIFF_ID)} });
+        await liff.init({ liffId: ${JSON.stringify(liffId)} });
         if (!liff.isInClient()) {
           result.textContent = "外部ブラウザで開いています。上のボタンでLINEアプリへ進めます。";
           return;
@@ -130,12 +131,12 @@ function entry(env) {
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
   if (url.origin !== previewOrigin) return json({ error: "not_found" }, 404);
-  if (!/^2012558185-[\w-]+$/.test(env.MOHS_LIFF_ID ?? "") || !env.LINE_LOGIN_CHANNEL_SECRET) {
+  if (!env.LINE_LOGIN_CHANNEL_SECRET) {
     return json({ error: "liff_not_configured" }, 503);
   }
 
   try {
-    if (url.pathname === "/api/liff/entry" && request.method === "GET") return entry(env);
+    if (url.pathname === "/api/liff/entry" && request.method === "GET") return entry();
     if (request.headers.get("Origin") !== previewOrigin || request.method !== "POST") {
       return json({ error: "not_found" }, 404);
     }

@@ -1,5 +1,6 @@
 const productionOrigin = "https://lp.mohs-jewelry.com";
 const directLineUrl = "https://lin.ee/tXXrxcO";
+const lineAppUrl = "https://line.me/R/ti/p/%40972cpsts";
 const channelId = "2012558185";
 const datasetId = "1521986363312676";
 const callbackPath = "/api/line/callback";
@@ -14,8 +15,36 @@ function response(body, status = 200, headers = {}) {
   });
 }
 
-function finish(message, status = 200) {
-  return response(`<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MOHS JEWELRY</title><main><h1>MOHS JEWELRY</h1><p>${message}</p><p><a href="${directLineUrl}">LINE公式アカウントを開く</a></p><p><a href="/">商品ページに戻る</a></p></main></html>`, status, {
+function finish(message, status = 200, openLine = false) {
+  const launchScript = openLine ? `<script>
+    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      window.location.replace(document.getElementById("open-line").href);
+    }
+  </script>` : "";
+  return response(`<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MOHS JEWELRY</title>
+  <style>
+    body { margin: 0; color: #17212b; background: #faf9f6; font: 16px/1.6 system-ui, sans-serif; }
+    main { max-width: 28rem; margin: 12vh auto 0; padding: 1.5rem; text-align: center; }
+    h1 { margin: 0 0 1rem; font: 500 1.7rem Georgia, serif; }
+    .line-link { display: block; padding: .85rem 1rem; border-radius: .55rem; background: #007a34; color: white; font-weight: 700; text-decoration: none; }
+    .return-link { color: #394653; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>MOHS JEWELRY</h1>
+    <p>${message}</p>
+    <p><a id="open-line" class="line-link" href="${lineAppUrl}">LINEアプリで開く</a></p>
+    <p><a class="return-link" href="/">商品ページに戻る</a></p>
+  </main>
+  ${launchScript}
+</body>
+</html>`, status, {
     "Content-Type": "text/html; charset=utf-8",
     "Set-Cookie": `${stateCookie}=; Path=/api/line; Max-Age=0; Secure; HttpOnly; SameSite=Lax`,
   });
@@ -156,7 +185,7 @@ async function callback(request, env, url, now) {
       console.error("LINE friend attribution: Meta delivery failed after login");
     }
   }
-  return finish("LINEの友だち登録を確認しました。");
+  return finish("LINEの友だち登録を確認しました。", 200, true);
 }
 
 async function webhook(request, env, now) {

@@ -30,6 +30,10 @@ export async function onRequestGet({ request, env }) {
   const metaTest = state.startsWith("meta-test.");
   if (metaTest && url.hostname !== PREVIEW_HOST) return reply("プレビュー専用のテストです。", 404);
 
+  if (metaTest && env.META_TEST_EVENT_CODE !== "TEST52755") {
+    return reply("プレビューのMetaテストコードが一致しません。", 503);
+  }
+
   const code = url.searchParams.get("code");
   if (!code) return reply("LINEログインが完了しませんでした。", 400);
 
@@ -88,24 +92,33 @@ export async function onRequestGet({ request, env }) {
       body: JSON.stringify({
         test_event_code: env.META_TEST_EVENT_CODE,
         data: [{
-          event_name: metaTest ? "LINEFriendAddedTest" : "LINEFriendAdded",
+          event_name: "LINEFriendAdded",
           event_id: eventId,
           event_time: Math.floor(Date.now() / 1000),
           action_source: "website",
-          event_source_url: url.origin + "/",
+          event_source_url: metaTest ? "https://lp.mohs-jewelry.com/" : url.origin + "/",
           user_data: userData,
         }],
       }),
     });
-    if (!metaResponse.ok || (await metaResponse.json()).events_received !== 1) {
+    const metaResult = await metaResponse.json();
+    if (!metaResponse.ok || metaResult.events_received !== 1) {
       const message = metaTest
         ? "Metaへのテスト送信に失敗しました。"
         : "友だち追加は確認できましたが、Metaへのテスト送信に失敗しました。";
       return reply(message, 502);
     }
-    return reply(metaTest
-      ? "Metaがテストイベント LINEFriendAddedTest を受け付けました。"
-      : "友だち追加を確認し、Metaへテストイベントを送信しました。");
+    if (metaTest) {
+      return reply([
+        "Metaがテストイベント LINEFriendAdded を受け付けました。",
+        JSON.stringify({
+          events_received: metaResult.events_received,
+          messages: metaResult.messages,
+          fbtrace_id: metaResult.fbtrace_id,
+        }, null, 2),
+      ].join("\n"));
+    }
+    return reply("友だち追加を確認し、Metaへテストイベントを送信しました。");
   } catch {
     return reply("テストの通信処理に失敗しました。", 502);
   }
